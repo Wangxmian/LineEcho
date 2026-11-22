@@ -27,7 +27,7 @@ class MTranEngine:
 
     def start(self):
         node_paths = os.pathsep.join((os.environ.get("PATH", ""), "/opt/homebrew/bin", "/usr/local/bin"))
-        node = shutil.which("node", path=node_paths)
+        node = os.environ.get("KOKORO_NODE_BINARY") or shutil.which("node", path=node_paths)
         if not node or not MANIFEST.is_file():
             raise RuntimeError("请运行 scripts/install-mtran.command 准备离线翻译模型。")
         self.buffer.clear()

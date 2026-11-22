@@ -1,6 +1,22 @@
 # Kokoro Reader 英文朗读与跟读训练
 
-在 Apple Silicon Mac 上使用 Kokoro-82M 逐句朗读英文文档，查看本地简体中文翻译，并通过录音回听和 A/B 对比练习发音。模型、文档和缓存均在本机。服务只监听 `127.0.0.1:7860`。
+在 Apple Silicon Mac 上使用 Kokoro-82M 逐句朗读英文文档，查看本地简体中文翻译，并通过录音回听和 A/B 对比练习发音。模型、文档和缓存均在本机。桌面版在应用窗口中使用，网页版服务监听 `127.0.0.1:7860`。
+
+## 下载 macOS 应用
+
+<img src="macos/kokoro-reader-icon.png" width="88" height="88" alt="Kokoro Reader 图标">
+
+**系统要求** · Apple Silicon Mac（M 系列），macOS 26 或更新版本。
+
+1. 从 [GitHub Release v0.1.0](https://github.com/Wangxmian/Kokoro-TTS/releases/tag/v0.1.0) 下载 `Kokoro-Reader-0.1.0-arm64.dmg`。
+2. 双击打开磁盘映像，将 **Kokoro Reader.app** 拖到「应用程序」，再从「应用程序」双击打开。
+3. 在右侧的跟读模式首次开始录音时允许麦克风访问。下载 WAV 或录音时可用 macOS 保存面板选择位置。
+
+**Apple 公证状态** · 此版本使用临时签名（ad hoc），尚未完成 Developer ID 签名和 Apple 公证。从 GitHub 下载后，macOS 可能默认阻止打开。请先核对下载来源，再参阅 [Apple 关于安全打开 Mac 应用的说明](https://support.apple.com/zh-cn/102445)。
+
+应用内置 Python、Node.js、Kokoro-82M 和 MTranServer 英译简中模型，首次使用也可离线导入文档、朗读、翻译、录音和保存音频。文档、阅读进度及缓存保存在 `~/Library/Application Support/Kokoro Reader/`，更换应用包后会继续使用同一份数据。网页项目里的文档可以通过顶部的「导入文档」重新导入。
+
+开发者可以在准备好项目环境、两个模型和 Xcode Command Line Tools 后执行 `./scripts/build-macos.command`，输出位于 `outputs/macos/`。参见[随包分发的第三方组件及许可证](macos/ThirdPartyNotices.md)。
 
 ## 界面预览
 
@@ -12,7 +28,7 @@
 
 ![Kokoro Reader 三步跟读训练界面，显示录音回听和 A/B 对比控件](docs/screenshots/kokoro-training.png)
 
-## 启动
+## 启动网页版
 
 首次使用请先按下方「安装与修复」的步骤安装依赖和模型。
 

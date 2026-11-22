@@ -23,7 +23,7 @@ from .translation_engine import MAX_TEXT as MAX_TRANSLATION_TEXT
 from .tts_engine import DEFAULT_VOICE, MAX_CHARACTERS, MODEL_ID, TTSEngine
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-DATA = FRONTEND.parent / "data"
+DATA = Path(os.environ.get("KOKORO_DATA_DIR", FRONTEND.parent / "data"))
 LOGGER = logging.getLogger("uvicorn.error")
 APP_ID = "kokoro-tts-local"
 
