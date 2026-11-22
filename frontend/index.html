@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f6f5f9">
+  <title>Kokoro Reader · 英文精听与跟读</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/reader.css">
+  <script src="/assets/navigation.js" defer></script>
+  <script src="/assets/training.js" defer></script>
+  <script src="/assets/reader.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/" aria-label="Kokoro Reader 首页">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span>Kokoro <span class="brand-reader">Reader</span></span>
+      </a>
+      <div class="topbar-actions">
+        <a class="nav-link" href="/tts">整段语音</a>
+        <span id="model-status" class="model-status" data-state="loading" role="status">
+          <span aria-hidden="true"></span><span id="model-label">模型加载中</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace" aria-label="英文精听与跟读">
+    <section class="library" id="library" aria-labelledby="library-title">
+      <div class="library-toolbar">
+        <div class="heading-row">
+          <h1 id="library-title">文档阅读</h1>
+          <div class="toolbar-actions">
+            <button type="button" id="paste-open" class="button">粘贴文本</button>
+            <button type="button" id="upload" class="button primary"><span aria-hidden="true">＋</span>导入文档</button>
+            <input type="file" id="file" accept=".docx,.md,.markdown,.txt" hidden>
+          </div>
+        </div>
+        <div class="library-settings">
+          <label for="documents" class="sr-only">文档库</label>
+          <select id="documents" disabled><option value="">没有已导入的文档</option></select>
+          <label for="chapters" class="sr-only">章节导航</label>
+          <select id="chapters" hidden aria-label="章节导航"></select>
+          <details class="popover" id="document-options">
+            <summary class="button">文档选项 <span class="chevron" aria-hidden="true"></span></summary>
+            <div class="popover-body">
+              <div class="field">
+                <label for="split">分割方式</label>
+                <select id="split" disabled>
+                  <option value="smart">智能分句</option>
+                  <option value="lines">按行分割</option>
+                </select>
+              </div>
+              <button type="button" class="button text-danger" id="delete-document" disabled>删除当前文档</button>
+            </div>
+          </details>
+        </div>
+        <div class="search-wrap" id="search-box">
+          <div class="search-field" role="search" aria-label="搜索当前文档">
+            <span class="search-icon" aria-hidden="true"></span>
+            <label for="document-search" class="sr-only">搜索英文关键词</label>
+            <input id="document-search" type="search" placeholder="搜索英文关键词…" autocomplete="off" spellcheck="false" disabled aria-controls="search-results">
+            <span id="search-count" class="search-count" aria-live="polite" hidden></span>
+            <div class="search-nav">
+              <button type="button" id="search-previous" class="icon-button" aria-label="上一条搜索结果" title="上一条搜索结果" disabled>↑</button>
+              <button type="button" id="search-next" class="icon-button" aria-label="下一条搜索结果" title="下一条搜索结果" disabled>↓</button>
+            </div>
+          </div>
+          <div class="search-results" id="search-results" hidden aria-label="搜索结果"></div>
+        </div>
+        <p class="notice" id="library-notice" role="status" hidden></p>
+      </div>
+
+      <div class="reading-scroll" id="reading-scroll" tabindex="0" aria-label="文档正文">
+        <div class="reading-empty" id="empty">
+          <span class="paper-icon" aria-hidden="true"></span>
+          <h2>打开一份英文文档</h2>
+          <p>拖拽或导入 DOCX、Markdown、TXT，也可以粘贴英文文本。</p>
+          <p class="file-limit">单个文件最多 8 MB</p>
+        </div>
+        <article class="document-paper" id="paper" hidden>
+          <header class="document-title">
+            <h2 id="document-name"></h2>
+            <span id="unit-count"></span>
+          </header>
+          <p id="no-english" class="reading-empty" hidden>未检测到可朗读的英文内容</p>
+          <div id="reading-content" lang="en"></div>
+        </article>
+      </div>
+    </section>
+
+    <aside class="player-panel" aria-label="播放器和跟读训练">
+      <div class="reader-modes" role="tablist" aria-label="学习模式">
+        <button type="button" id="reader-normal" role="tab" aria-controls="normal-panel" aria-selected="true">普通朗读</button>
+        <button type="button" id="reader-training" role="tab" aria-controls="training-panel" aria-selected="false" tabindex="-1">跟读训练</button>
+      </div>
+      <section class="sentence-preview" aria-labelledby="player-title">
+        <div class="player-heading">
+          <h2 id="player-title">当前句子</h2>
+          <span id="position" class="position">尚未选句</span>
+        </div>
+        <span id="current-role" class="role-label current-role" lang="en" hidden></span>
+        <p id="current-sentence" class="current-sentence"></p>
+        <button type="button" class="link-button" id="expand-sentence" aria-expanded="false" aria-controls="current-sentence" hidden>展开全文</button>
+      </section>
+
+      <section id="normal-panel" role="tabpanel" aria-labelledby="reader-normal">
+        <div class="transport">
+          <button type="button" id="previous" class="button" disabled><span aria-hidden="true">‹</span> 上一句</button>
+          <button type="button" id="play" class="button primary" disabled><span id="play-mark" aria-hidden="true">▶</span><span id="play-label">播放</span></button>
+          <button type="button" id="next" class="button" disabled>下一句 <span aria-hidden="true">›</span></button>
+        </div>
+        <div id="normal-timeline-slot">
+          <div class="timeline" id="timeline">
+            <label for="seek" class="sr-only">播放进度</label>
+            <input id="seek" type="range" min="0" max="1" step="0.01" value="0" disabled>
+            <div class="times"><span id="elapsed">0:00</span><span id="duration">0:00</span></div>
+          </div>
+        </div>
+        <fieldset id="reading-play-modes" class="play-modes">
+          <legend>播放模式</legend>
+          <div class="mode-options">
+            <label><input type="radio" name="play-mode" value="single" checked><span>单句播放</span></label>
+            <label><input type="radio" name="play-mode" value="continuous"><span>连续播放</span></label>
+            <label><input type="radio" name="play-mode" value="loop"><span>单句循环</span></label>
+          </div>
+        </fieldset>
+        <div class="speed-control">
+          <div class="speed-heading"><label for="speed">播放倍率</label><output id="speed-value" for="speed">1.0×</output></div>
+          <div id="speed-presets" class="speed-presets" role="group" aria-label="常用播放倍率">
+            <button type="button" class="button" data-rate="0.8" aria-pressed="false">0.8×</button>
+            <button type="button" class="button" data-rate="1" aria-pressed="true">1.0×</button>
+            <button type="button" class="button" data-rate="1.2" aria-pressed="false">1.2×</button>
+          </div>
+          <input id="speed" type="range" min="0.7" max="1.3" step="0.05" value="1.0">
+        </div>
+        <div class="secondary-actions" id="normal-file-actions">
+          <button type="button" id="replay" class="button" disabled>重播</button>
+          <a class="button" id="download" download hidden title="下载生成时的 WAV">下载 WAV</a>
+        </div>
+      </section>
+
+      <section id="training-panel" role="tabpanel" aria-labelledby="reader-training" data-phase="idle" hidden>
+        <ol class="training-steps">
+          <li>
+            <h3>听标准发音</h3>
+            <div class="training-actions">
+              <button type="button" id="training-a" class="button">播放标准发音</button>
+            </div>
+          </li>
+          <li>
+            <div class="step-heading">
+              <h3>录制我的发音</h3>
+              <span id="mic-state" class="mic-state">麦克风未启用</span>
+            </div>
+            <div class="training-actions">
+              <button type="button" id="training-start" class="button primary">开始录音</button>
+              <button type="button" id="training-finish" class="button recording-button" hidden>停止录音</button>
+              <span id="recording-indicator" class="recording-indicator" hidden>
+                <span aria-hidden="true"></span>录音中 <output id="recording-time">0:00</output>
+              </span>
+            </div>
+          </li>
+          <li>
+            <h3>听辨差异</h3>
+            <div class="training-actions">
+              <button type="button" id="training-b" class="button" disabled>播放我的录音</button>
+              <button type="button" id="training-compare" class="button" disabled>A/B 对比</button>
+              <button type="button" id="training-retake" class="button" disabled>重新录音</button>
+              <button type="button" id="training-next" class="button" disabled>下一句 <span aria-hidden="true">›</span></button>
+              <a id="training-download" class="button" download hidden>下载录音</a>
+            </div>
+          </li>
+        </ol>
+        <div id="training-session" class="training-session" hidden>
+          <div id="training-timeline-slot"></div>
+          <div class="training-actions">
+            <button type="button" id="training-toggle" class="button" hidden>暂停</button>
+            <button type="button" id="training-stop" class="button text-danger" hidden>停止训练</button>
+          </div>
+        </div>
+        <p id="training-notice" class="notice" role="status" hidden></p>
+        <details class="settings" id="training-settings">
+          <summary>训练设置 <span class="chevron" aria-hidden="true"></span></summary>
+          <div class="settings-fields">
+            <div class="field">
+              <label for="training-style">训练方式</label>
+              <select id="training-style"><option value="manual">手动跟读</option><option value="auto">自动跟读</option></select>
+            </div>
+            <div class="field" id="training-delay-field" hidden>
+              <label for="training-delay">准备时间</label>
+              <select id="training-delay"><option value="0">0 秒</option><option value="2" selected>2 秒</option><option value="3">3 秒</option><option value="5">5 秒</option></select>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <audio id="audio" preload="auto"></audio>
+      <audio id="training-audio" preload="metadata"></audio>
+      <p class="notice" id="player-notice" role="status" hidden></p>
+      <details class="settings" id="sound-settings">
+        <summary>声音设置 <span class="settings-preview" id="voice-preview"></span><span class="chevron" aria-hidden="true"></span></summary>
+        <div class="settings-fields">
+          <div class="field">
+            <label for="voice">音色</label>
+            <select id="voice" disabled><option>正在载入音色…</option></select>
+          </div>
+          <div class="field">
+            <div class="speed-heading"><label for="generation-speed">Kokoro 生成语速</label><output id="generation-speed-value" for="generation-speed">1.0×</output></div>
+            <input id="generation-speed" type="range" min="0.7" max="1.3" step="0.1" value="1.0" aria-describedby="generation-speed-help">
+            <p class="field-hint" id="generation-speed-help">用于下一次合成和 WAV 下载。播放倍率只影响当前听到的标准音频。</p>
+          </div>
+        </div>
+      </details>
+      <div class="player-footer">
+        <span><kbd>空格</kbd> 播放 <kbd>←</kbd><kbd>→</kbd> 切句 <kbd>R</kbd> 重播</span>
+        <button type="button" id="clear-cache" class="link-button">清理音频缓存</button>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="paste-dialog" aria-labelledby="paste-title">
+    <form id="paste-form">
+      <div class="heading-row">
+        <h2 id="paste-title">粘贴英文文本</h2>
+        <button type="button" id="paste-cancel" class="button">取消</button>
+      </div>
+      <label for="paste-name">文档名称</label>
+      <input type="text" id="paste-name" maxlength="160" placeholder="粘贴文本">
+      <label for="paste-text">英文正文</label>
+      <textarea id="paste-text" rows="9" lang="en" required placeholder="在这里粘贴英文文本…"></textarea>
+      <p class="notice" id="paste-notice" role="status" hidden></p>
+      <div class="dialog-actions"><button type="submit" id="paste-submit" class="button primary">导入文本</button></div>
+    </form>
+  </dialog>
+</body>
+</html>

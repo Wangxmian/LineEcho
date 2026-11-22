@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f7f7fb">
+  <title>Kokoro · 英文语音工作台</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span>Kokoro</span>
+      </div>
+      <a href="/" style="color:var(--accent); font-size:14px; margin-inline-start:auto; margin-inline-end:20px">文档阅读</a>
+      <div id="model-status" class="status-pill" data-state="loading" role="status">
+        <span class="dot" aria-hidden="true"></span><span id="model-status-text">模型加载中</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="intro">
+      <h1>英文语音工作台</h1>
+      <p>在这台 Mac 上将英文文本转成语音。</p>
+    </div>
+    <section class="studio" aria-label="英文语音生成">
+      <form id="tts-form">
+        <div class="editor-header">
+          <label for="text">英文文本</label>
+          <div class="text-actions">
+            <button type="button" class="text-button" id="example">填入示例</button>
+            <button type="button" class="text-button" id="clear">清空</button>
+          </div>
+        </div>
+        <textarea id="text" rows="6" spellcheck="true" lang="en"
+                  aria-describedby="character-count" placeholder="Type or paste English text here…">Hello! Welcome to Kokoro Text to Speech. This is a high-quality English voice generated entirely on my Mac.</textarea>
+        <div id="character-count" class="character-count"></div>
+
+        <div class="options">
+          <div class="option">
+            <label for="voice">音色</label>
+            <select id="voice" disabled><option>正在载入音色…</option></select>
+          </div>
+          <div class="option">
+            <div class="speed-label">
+              <label for="speed">语速</label>
+              <output for="speed" id="speed-value">1.0×</output>
+            </div>
+            <input type="range" id="speed" min="0.7" max="1.3" step="0.1" value="1.0">
+            <div class="speed-ticks" aria-hidden="true"><span>0.7×</span><span>1.3×</span></div>
+          </div>
+        </div>
+        <button class="generate" id="generate" type="submit" lang="en" disabled>
+          <span class="button-icon" aria-hidden="true"></span><span id="generate-label">Generate Speech</span>
+        </button>
+        <p class="feedback" id="feedback" role="status" hidden></p>
+      </form>
+
+      <section class="result" id="result" aria-labelledby="result-title" hidden>
+        <div class="result-heading">
+          <div>
+            <h2 id="result-title">生成结果</h2>
+            <p id="result-details"></p>
+          </div>
+          <div class="result-actions">
+            <button class="secondary-button" type="button" id="replay">重播</button>
+            <a class="secondary-button download" id="download" download>下载 WAV</a>
+          </div>
+        </div>
+        <audio id="player" controls preload="metadata" aria-label="生成的英文语音"></audio>
+      </section>
+    </section>
+    <p class="footer">Kokoro-82M <span aria-hidden="true">·</span> 本地离线推理</p>
+  </main>
+</body>
+</html>
