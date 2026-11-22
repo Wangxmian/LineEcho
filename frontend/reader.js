@@ -114,11 +114,13 @@ function updateTimeline() {
   const candidate = Number.isFinite(media.duration) ? media.duration :
     (training?.usesRecording ? training.takeLength : 0);
   const duration = media.getAttribute("src") && media.readyState ? candidate : 0;
+  const elapsed = duration ? media.currentTime : 0;
   seek.disabled = !duration;
   seek.max = duration || 1;
-  seek.value = duration ? media.currentTime : 0;
-  seek.setAttribute("aria-valuetext", `${formatTime(duration ? media.currentTime : 0)} / ${formatTime(duration)}`);
-  $("elapsed").textContent = formatTime(duration ? media.currentTime : 0);
+  seek.value = elapsed;
+  seek.style.setProperty("--progress", `${duration ? Math.min(elapsed / duration * 100, 100) : 0}%`);
+  seek.setAttribute("aria-valuetext", `${formatTime(elapsed)} / ${formatTime(duration)}`);
+  $("elapsed").textContent = formatTime(elapsed);
   $("duration").textContent = formatTime(duration);
 }
 
@@ -136,10 +138,12 @@ function updatePlayer() {
   $("training-next").disabled = $("next").disabled || !training?.takeUrl || training.captures;
   $("play").disabled = $("replay").disabled = !enabled || (inTraining && training.captures);
   const canPause = inTraining ? training.pausable : state.intent && (state.pending || playing);
-  const loading = !inTraining && state.pending && state.intent;
+  const loading = state.pending && state.intent;
   const retry = !state.url && playerNotice.dataset.state === "error";
   $("play").toggleAttribute("data-loading", loading);
-  $("play-label").textContent = loading ? "生成中" : canPause ? "暂停" : retry ? "重试" : "播放";
+  const playLabel = inTraining && training.usesRecording ? "播放录音" : "播放标准发音";
+  $("play-label").textContent = loading ? "生成中" : canPause ? "暂停" : retry ? "重试" : playLabel;
+  $("playing-wave").hidden = !playing;
   $("play-mark").textContent = canPause ? "Ⅱ" : "▶";
   if (loading) $("play").setAttribute("aria-label", "生成中，点击暂停自动播放");
   else $("play").removeAttribute("aria-label");
@@ -173,6 +177,13 @@ function revealSentence(button, immediate) {
   readingArea.scrollTo({ top: readingArea.scrollTop + delta, behavior: motion ? "smooth" : "instant" });
 }
 
+function roleStyle(label) {
+  const role = label.toLowerCase().trim();
+  if (/^answer(?:\s+\d+)?$/.test(role)) return "answer";
+  if (/^(?:alternate )?question(?:\s+\d+)?$/.test(role)) return "question";
+  return /^speaker\s+2$/.test(role) ? "speaker-2" : "speaker";
+}
+
 function showSelection(scroll, { focus = false, immediate = false } = {}) {
   const unit = state.units[state.index];
   const selected = state.sentenceButtons[state.index] || null;
@@ -188,10 +199,15 @@ function showSelection(scroll, { focus = false, immediate = false } = {}) {
     sentence.removeAttribute("data-expanded");
     $("current-role").hidden = !unit?.role;
     $("current-role").textContent = unit?.role || "";
+    $("current-role").dataset.role = roleStyle(unit?.role || "");
+    const wordCount = unit?.speech.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)?.length || 0;
+    $("word-count").hidden = !wordCount;
+    $("word-count").textContent = wordCount ? `${wordCount} 词` : "";
     $("position").textContent = unit ? `第 ${state.index + 1} / ${state.units.length} 句` : "尚未选句";
     updateExpansion();
   }
   state.highlighted = selected;
+  navigation?.selectOutline(state.index);
   if (selected) {
     selected.setAttribute("aria-current", "true");
     if (focus) selected.focus({ preventScroll: true });
@@ -208,9 +224,13 @@ function renderReading() {
   readingContent.toggleAttribute("data-long", state.units.length >= 180);
   $("empty").hidden = !!active;
   $("paper").hidden = !active;
+  $("document-name").textContent = active?.name || "文档阅读";
+  $("document-name").title = active?.name || "";
+  $("unit-count").hidden = !active;
+  $("mask-answers").hidden = !state.units.some((unit) =>
+    roleStyle(unit.role) === "answer" || unit.parts.some(({ label }) => roleStyle(label) === "answer"));
   if (!active) return;
-  $("document-name").textContent = active.name;
-  $("unit-count").textContent = `${state.units.length.toLocaleString("en-US")} 个朗读单元`;
+  $("unit-count").textContent = `${state.units.length.toLocaleString("en-US")} 句`;
   split.value = active.mode;
   $("no-english").hidden = !!state.units.length;
   const unitsByBlock = new Map();
@@ -268,9 +288,17 @@ function renderReading() {
           const badge = document.createElement("span");
           badge.className = "role-label";
           badge.textContent = label;
+          badge.dataset.role = roleStyle(label);
           button.append(badge, " ");
         }
-        button.append(text);
+        if (roleStyle(label || (line === 0 ? unit.role : "")) === "answer") {
+          const answer = document.createElement("span");
+          answer.className = "answer-text";
+          answer.textContent = text;
+          button.append(answer);
+        } else {
+          button.append(text);
+        }
       });
       element.append(button);
       state.sentenceButtons[position] = button;
@@ -312,8 +340,8 @@ function resetAudio({ keepTake = false } = {}) {
     audio.load();
     URL.revokeObjectURL(previous);
   }
-  download.hidden = true;
   download.removeAttribute("href");
+  download.setAttribute("aria-disabled", "true");
   notice(playerNotice);
   updateTimeline();
   updatePlayer();
@@ -490,7 +518,7 @@ async function startAudio(rewind = false) {
     applyPlaybackRate();
     download.href = state.url;
     download.download = `kokoro-${selectedVoice}-${state.index + 1}.wav`;
-    download.hidden = false;
+    download.removeAttribute("aria-disabled");
     const cached = response.headers.get("X-Kokoro-Cache") === "hit";
     notice(playerNotice, cached ? "已读取本地音频缓存。" : "语音已生成。", "success");
     if (state.intent) return await playMedia(epoch);
@@ -707,6 +735,31 @@ generationSpeed.addEventListener("input", () => {
   $("generation-speed-value").textContent = rateLabel(Number(generationSpeed.value));
   if (state.pending || state.url || training?.op) resetAudio({ keepTake: true });
 });
+$("training-slow").addEventListener("click", () => {
+  if (!training.enabled || training.captures || !standardAvailable()) return;
+  speed.value = "0.75";
+  applyPlaybackRate();
+  training.listenA();
+});
+
+$("mask-answers").addEventListener("click", () => {
+  const masking = readingContent.toggleAttribute("data-mask");
+  $("mask-answers").setAttribute("aria-pressed", String(masking));
+  $("mask-answers").textContent = masking ? "显示答案" : "遮罩答案";
+});
+
+$("reading-font").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-size]");
+  if (!button) return;
+  readingArea.dataset.size = button.dataset.size;
+  for (const preset of $("reading-font").children) {
+    preset.setAttribute("aria-pressed", String(preset === button));
+  }
+  requestAnimationFrame(() => {
+    if (state.highlighted?.isConnected) revealSentence(state.highlighted, true);
+  });
+});
+
 $("expand-sentence").addEventListener("click", () => {
   $("current-sentence").toggleAttribute("data-expanded");
   updateExpansion();
@@ -793,8 +846,13 @@ $("clear-cache").addEventListener("click", async () => {
 
 document.addEventListener("keydown", (event) => {
   if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey ||
-      pasteDialog.open || event.target.closest?.("input, textarea, select, summary, [role=tab], [contenteditable]") ||
-      !state.document || !state.ready || state.libraryBusy) return;
+      pasteDialog.open || event.target.closest?.("input, textarea, select, summary, [role=tab], [contenteditable]")) return;
+  if (event.key.toLowerCase() === "b") {
+    event.preventDefault();
+    navigation.toggleOutline();
+    return;
+  }
+  if (!state.document || !state.ready || state.libraryBusy) return;
   if (event.key === " " && event.target.closest?.("button:not(.sentence):not(#play), a")) return;
   const shortcuts = {
     " ": togglePlayback,

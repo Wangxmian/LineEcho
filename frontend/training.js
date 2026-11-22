@@ -44,8 +44,10 @@ class ShadowTraining {
     this.op = null;
     this.takeUrl = null;
     this.takeLength = 0;
+    this.heardStandard = false;
     this.media = "a";
     this.personal = $("training-audio");
+    this.steps = Array.from($("training-panel").querySelector(".training-steps").children);
     $("reader-normal").addEventListener("click", () => this.setEnabled(false));
     $("reader-training").addEventListener("click", () => this.setEnabled(true));
     $("reader-training").parentElement.addEventListener("keydown", (event) => {
@@ -92,7 +94,6 @@ class ShadowTraining {
     $("reader-training").tabIndex = enabled ? 0 : -1;
     $("training-panel").hidden = !enabled;
     $("normal-panel").hidden = enabled;
-    $(enabled ? "training-timeline-slot" : "normal-timeline-slot").append($("timeline"));
     this.hooks.changed();
   }
 
@@ -100,12 +101,21 @@ class ShadowTraining {
     const haveUnit = this.hooks.available();
     const haveTake = !!this.takeUrl;
     const phase = this.phase;
+    const activePhase = phase === "paused" ? this.op.pause.phase : phase;
+    let step = 0;
+    if (this.captures || activePhase === "preparing") step = 1;
+    else if (this.op?.kind === "compare" || activePhase === "personal" || (phase === "idle" && haveTake)) step = 2;
+    else if (phase === "idle" && this.heardStandard) step = 1;
+    this.steps.forEach((item, index) => {
+      if (haveUnit && index === step) item.setAttribute("aria-current", "step");
+      else item.removeAttribute("aria-current");
+    });
     $("training-panel").dataset.phase = phase;
     $("training-delay-field").hidden = !this.automatic;
     $("training-start").textContent = this.automatic ? "开始跟读" : "开始录音";
     $("training-style").disabled = this.captures;
     $("training-delay").disabled = phase !== "idle";
-    $("training-a").disabled = !haveUnit || this.captures;
+    $("training-a").disabled = $("training-slow").disabled = !haveUnit || this.captures;
     $("training-start").disabled = !haveUnit || this.captures;
     $("training-start").hidden = phase === "recording";
     $("training-finish").hidden = phase !== "recording";
@@ -154,7 +164,10 @@ class ShadowTraining {
     } finally {
       stopTracks(op?.stream);
     }
-    if (discardTake) this.discardTake();
+    if (discardTake) {
+      this.heardStandard = false;
+      this.discardTake();
+    }
     this.media = "a";
     if (!keepNotice) this.message();
     this.hooks.changed();
@@ -229,6 +242,7 @@ class ShadowTraining {
   standardEnded() {
     const op = this.op;
     if (op?.phase !== "standard") return;
+    this.heardStandard = true;
     if (op.kind === "compare") {
       this.wait(op, "gap", COMPARISON_GAP_MS, () => void this.playB(op, true));
     } else if (op.kind === "auto") {

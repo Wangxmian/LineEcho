@@ -1,26 +1,64 @@
 "use strict";
 
-const DIALOGUE_PREFIX = /^(Speaker[ \t]+[0-9]{1,3}|Question(?:[ \t]+[0-9]{1,3})?|Answer(?:[ \t]+[0-9]{1,3})?)[ \t]*:[ \t]*/i;
+const DIALOGUE_LABEL = /^(Speaker[^\S\r\n]+\d{1,3}|(?:(?:Alternate[^\S\r\n]+)?Question|Answer)(?:[^\S\r\n]+\d{1,3})?)(?=\s|[:：]|$)/i;
+const LABEL_COLON = /^[^\S\r\n]*[:：][^\S\r\n]*/;
+const QUESTION_LABEL = /^(?:Alternate )?Question\b/i;
+const ANSWER_LABEL = /^Answer\b/i;
+const NUMBERED_ITEM = /^(?:[A-Z]{1,2}\d{1,4}(?=$|[ \t]*[.·:：—–-])|\d{1,4}[.)](?=\s|$))/;
+const QA_BODY_START = /^[\s“‘"'(\[]*[\p{Lu}\p{Nd}]/u;
 
-function dialogueLines(text) {
-  let offset = 0;
-  return text.split("\n").map((line) => {
-    const firstLatin = line.search(/\p{Script=Latin}/u);
-    const match = firstLatin < 0 ? null : DIALOGUE_PREFIX.exec(line.slice(firstLatin));
-    const result = {
-      start: offset,
-      end: offset + Array.from(line).length,
-      bodyStart: match ? offset + Array.from(line.slice(0, firstLatin + match[0].length)).length : null,
-      label: match?.[1] || "",
-    };
-    offset = result.end + 1;
-    return result;
+function dialogueLines(blocks) {
+  let previousText = "";
+  let question = null;
+  return blocks.map((block) => {
+    if (block.kind === "heading") {
+      previousText = block.text.trim();
+      question = null;
+      return [];
+    }
+    const canPair = ["paragraph", "list", "quote"].includes(block.kind);
+    let offset = 0;
+    return block.text.split("\n").map((line) => {
+      const record = { start: offset, label: "", bodyStart: null, recognized: false };
+      offset += Array.from(line).length + 1;
+      const trimmed = line.trim();
+      if (!trimmed) return record;
+
+      const afterNumber = NUMBERED_ITEM.test(previousText);
+      previousText = canPair ? trimmed : "";
+      const firstLatin = line.search(/\p{Script=Latin}/u);
+      const match = firstLatin < 0 ? null : DIALOGUE_LABEL.exec(line.slice(firstLatin));
+      const pendingQuestion = question;
+      question = null;
+      if (!match) return record;
+
+      const rest = line.slice(firstLatin + match[0].length);
+      const colon = LABEL_COLON.exec(rest);
+      const label = match[1].replace(/\s+/g, " ");
+      const isQuestion = QUESTION_LABEL.test(label);
+      const isAnswer = ANSWER_LABEL.test(label);
+      const body = colon ? rest.slice(colon[0].length) : rest.trimStart();
+      if (!colon && (!canPair || body === rest || firstLatin !== line.length - line.trimStart().length ||
+          !QA_BODY_START.test(body))) return record;
+
+      record.label = label;
+      record.bodyStart = record.start + Array.from(line.slice(0, line.length - body.length)).length;
+      record.recognized = !!colon;
+      // With a space as the separator, require a neighboring question and answer.
+      if (canPair && isAnswer && pendingQuestion) {
+        pendingQuestion.recognized = record.recognized = true;
+      } else if (canPair && isQuestion && (colon || afterNumber || body.includes("?"))) {
+        question = record;
+      }
+      return record;
+    });
   });
 }
 
 function prepareReadingUnits(document) {
   if (!document) return [];
   const result = [];
+  const linesByBlock = dialogueLines(document.blocks);
   let currentBlock = -1;
   let lines = [];
   let lineIndex = 0;
@@ -30,7 +68,7 @@ function prepareReadingUnits(document) {
     if (unit.paragraph_index !== currentBlock) {
       currentBlock = unit.paragraph_index;
       const block = document.blocks[currentBlock];
-      lines = block.kind === "heading" ? [] : dialogueLines(block.text);
+      lines = linesByBlock[currentBlock];
       if (block.kind === "heading") pendingLabel = "";
       lineIndex = 0;
     }
@@ -38,21 +76,25 @@ function prepareReadingUnits(document) {
 
     const parts = unit.text.split("\n").map((text, index) => {
       const line = lines[lineIndex + index];
-      const prefix = line?.label && (index > 0 || unit.start < line.bodyStart)
-        ? DIALOGUE_PREFIX.exec(text) : null;
-      if (!prefix || prefix[1].toLowerCase() !== line.label.toLowerCase()) return { text, label: "" };
-      return { text: text.slice(prefix[0].length), label: prefix[1] };
+      const prefix = line?.recognized && (index > 0 || unit.start < line.bodyStart)
+        ? DIALOGUE_LABEL.exec(text) : null;
+      if (!prefix || prefix[1].replace(/\s+/g, " ").toLowerCase() !== line.label.toLowerCase()) {
+        return { text, label: "" };
+      }
+      const body = text.slice(prefix[0].length);
+      return { text: body.replace(LABEL_COLON, "").trimStart(), label: line.label };
     });
     const speech = parts.map(({ text }) => text).join("\n").trim();
     if (!speech) {
       pendingLabel = parts.find(({ label }) => label)?.label || "";
       continue;
     }
-    if (pendingLabel && !parts.some(({ label }) => label) && !lines[lineIndex]?.label) {
+    const line = lines[lineIndex];
+    if (pendingLabel && !parts.some(({ label }) => label) && (!line?.recognized || line.label === pendingLabel)) {
       parts[0].label = pendingLabel;
     }
     pendingLabel = "";
-    result.push({ ...unit, parts, speech, role: parts.find(({ label }) => label)?.label || lines[lineIndex]?.label || "" });
+    result.push({ ...unit, parts, speech, role: parts.find(({ label }) => label)?.label || (line?.recognized ? line.label : "") });
   }
   return result;
 }
@@ -70,6 +112,13 @@ class DocumentNavigation {
     this.count = $("search-count");
     this.previous = $("search-previous");
     this.next = $("search-next");
+    this.outline = $("outline-list");
+    this.outlinePanel = $("outline-sidebar");
+    this.outlineToggle = $("outline-toggle");
+    this.outlineFilters = $("outline-filters");
+    this.desktop = matchMedia("(min-width: 1025px)");
+    this.outlineEntries = [];
+    this.outlineCurrent = null;
     this.units = [];
     this.buttons = [];
     this.matches = [];
@@ -77,6 +126,29 @@ class DocumentNavigation {
     this.query = "";
     this.busy = false;
     this.timer = null;
+
+    this.desktop.addEventListener("change", ({ matches }) => {
+      if (!matches) this.toggleOutline(false);
+    });
+    this.outlineToggle.addEventListener("click", () => this.toggleOutline());
+    this.outline.addEventListener("click", (event) => {
+      const entry = event.target.closest("button[data-unit]");
+      if (!entry || this.busy) return;
+      if (!this.desktop.matches) {
+        this.toggleOutline(false);
+        this.outlineToggle.focus({ preventScroll: true });
+      }
+      this.selectUnit(Number(entry.dataset.unit));
+    });
+    this.outlineFilters.addEventListener("click", (event) => {
+      const filter = event.target.closest("button[data-part]");
+      if (filter) this.filterOutline(filter.dataset.part);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.defaultPrevented || event.key !== "Escape" || this.desktop.matches || this.outlinePanel.hidden) return;
+      this.toggleOutline(false);
+      if (this.outlinePanel.contains(event.target)) this.outlineToggle.focus();
+    });
 
     this.input.addEventListener("input", () => {
       clearTimeout(this.timer);
@@ -111,6 +183,10 @@ class DocumentNavigation {
     });
     document.addEventListener("pointerdown", (event) => {
       if (!$("search-box").contains(event.target)) this.results.hidden = true;
+      if (!this.desktop.matches && !this.outlinePanel.hidden &&
+          !this.outlinePanel.contains(event.target) && !this.outlineToggle.contains(event.target)) {
+        this.toggleOutline(false);
+      }
     });
   }
 
@@ -130,16 +206,121 @@ class DocumentNavigation {
       if (headings.has(unit.paragraph_index)) headings.get(unit.paragraph_index).text += " " + unit.text;
       else headings.set(unit.paragraph_index, { index, text: unit.text, level: block.level });
     });
-    const choices = [...headings.values()].map(({ index, text, level }) =>
+    const entries = [...headings.values()];
+    const choices = entries.map(({ index, text, level }) =>
       new Option("\u00a0\u00a0".repeat(Math.max(0, Math.min(3, level - 1))) + text, index));
     this.chapter.replaceChildren(new Option("章节导航", ""), ...choices);
     this.chapter.hidden = !choices.length;
+    this.renderOutline(entries, blocks.length > 0);
     this.setBusy(this.busy);
     this.search(false);
   }
 
+  toggleOutline(open = this.outlinePanel.hidden) {
+    this.outlinePanel.hidden = !open;
+    this.outlineToggle.setAttribute("aria-expanded", String(open));
+    this.outlinePanel.parentElement.dataset.outline = open ? "open" : "closed";
+    if (open) this.revealOutline();
+  }
+
+  renderOutline(entries, haveDocument) {
+    this.outline.replaceChildren();
+    this.outlineFilters.replaceChildren();
+    this.outlineEntries = [];
+    this.outlineCurrent = null;
+    $("outline-count").hidden = !entries.length;
+    $("outline-count").textContent = `${entries.length} 个标题`;
+    this.outlineFilters.hidden = true;
+    if (!entries.length) {
+      const empty = document.createElement("p");
+      empty.className = "outline-empty";
+      empty.textContent = haveDocument ? "这份文档没有可导航的章节标题。" : "导入文档后可查看章节。";
+      this.outline.append(empty);
+      return;
+    }
+
+    const firstLevel = Math.min(...entries.map(({ level }) => level));
+    const parts = new Set();
+    let part = "";
+    const fragment = document.createDocumentFragment();
+    for (const { index, text, level } of entries) {
+      const match = text.match(/^Part\s+([A-Z]|\d+)\b/i);
+      if (match) {
+        part = `Part ${match[1].toUpperCase()}`;
+        parts.add(part);
+      } else if (level === firstLevel) {
+        part = "";
+      }
+      const entry = document.createElement("button");
+      entry.type = "button";
+      entry.className = "outline-entry";
+      entry.dataset.unit = index;
+      entry.dataset.part = part;
+      entry.style.setProperty("--depth", Math.min(4, level - firstLevel));
+      entry.toggleAttribute("data-root", level === firstLevel || !!match);
+      entry.lang = "en";
+      entry.textContent = text;
+      entry.title = text;
+      fragment.append(entry);
+      this.outlineEntries.push({ index, entry });
+    }
+    this.outline.append(fragment);
+    const filters = [["", "全部"]];
+    if (this.outlineEntries.some(({ entry }) => !entry.hasAttribute("data-root"))) {
+      filters.push(["major", "仅主章节"]);
+    }
+    if (parts.size > 1) for (const part of parts) filters.push([part, part]);
+    if (filters.length === 1) return;
+    for (const [part, label] of filters) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.part = part;
+      button.textContent = label;
+      button.setAttribute("aria-pressed", String(!part));
+      this.outlineFilters.append(button);
+    }
+    this.outlineFilters.hidden = false;
+  }
+
+  filterOutline(part) {
+    for (const { entry } of this.outlineEntries) {
+      entry.hidden = part === "major" ? !entry.hasAttribute("data-root") : !!part && entry.dataset.part !== part;
+    }
+    for (const button of this.outlineFilters.children) {
+      button.setAttribute("aria-pressed", String(button.dataset.part === part));
+    }
+    this.outline.scrollTop = 0;
+    this.revealOutline();
+  }
+
+  selectOutline(index) {
+    let first = 0;
+    let last = this.outlineEntries.length;
+    while (first < last) {
+      const middle = (first + last) >>> 1;
+      if (this.outlineEntries[middle].index <= index) first = middle + 1;
+      else last = middle;
+    }
+    const selected = this.outlineEntries[first - 1]?.entry || null;
+    if (this.outlineCurrent === selected) return;
+    this.outlineCurrent?.removeAttribute("aria-current");
+    this.outlineCurrent = selected;
+    selected?.setAttribute("aria-current", "location");
+    this.revealOutline();
+  }
+
+  revealOutline() {
+    if (!this.outlineCurrent || this.outlinePanel.hidden || this.outlineCurrent.hidden) return;
+    const list = this.outline.getBoundingClientRect();
+    const current = this.outlineCurrent.getBoundingClientRect();
+    if (current.top < list.top || current.bottom > list.bottom) {
+      this.outline.scrollTop += current.top - list.top - 15;
+    }
+  }
+
   setBusy(busy) {
     this.busy = busy;
+    for (const { entry } of this.outlineEntries) entry.disabled = busy;
     this.input.disabled = this.chapter.disabled = busy || !this.units.length;
     this.updateControls();
   }
