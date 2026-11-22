@@ -1,0 +1,5 @@
+torch==2.15.0
+transformers==5.24.0
+sentencepiece==0.2.3
+sacremoses==0.1.1
+opencc-python-reimplemented==0.1.7

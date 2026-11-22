@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/assets/reader.css">
   <script src="/assets/navigation.js" defer></script>
   <script src="/assets/training.js" defer></script>
+  <script src="/assets/translation.js" defer></script>
   <script src="/assets/reader.js" defer></script>
 </head>
 <body>
@@ -135,6 +136,16 @@
           <span id="current-role" class="role-label current-role" lang="en" hidden></span>
           <p id="current-sentence" class="current-sentence"></p>
           <button type="button" class="link-button" id="expand-sentence" aria-expanded="false" aria-controls="current-sentence" hidden>展开全文</button>
+          <section class="sentence-translation" aria-labelledby="translation-title">
+            <div class="translation-heading">
+              <h3 id="translation-title">中文翻译</h3>
+              <button type="button" class="link-button" id="translation-toggle" aria-controls="translation-body" aria-expanded="true">隐藏</button>
+            </div>
+            <div id="translation-body">
+              <p class="translation-output" id="translation-output" role="status" data-state="idle">请选择左侧英文句子。</p>
+              <button type="button" class="link-button" id="translation-retry" hidden>重试翻译</button>
+            </div>
+          </section>
           <div class="timeline" id="timeline">
             <label for="seek" class="sr-only">播放进度</label>
             <input id="seek" type="range" min="0" max="1" step="0.01" value="0" disabled>
@@ -250,7 +261,11 @@
       </div>
       <div class="player-footer">
         <span><kbd>空格</kbd> 播放 <kbd>←</kbd><kbd>→</kbd> 切句 <kbd>R</kbd> 重播 <kbd>B</kbd> 目录</span>
-        <button type="button" id="clear-cache" class="link-button">清理音频缓存</button>
+        <div class="cache-actions">
+          <button type="button" id="clear-cache" class="link-button">清理音频缓存</button>
+          <button type="button" id="clear-translation-cache" class="link-button">清理翻译缓存</button>
+        </div>
+        <p id="translation-cache-note" class="notice translation-cache-note" role="status" hidden></p>
       </div>
     </aside>
   </main>

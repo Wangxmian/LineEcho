@@ -50,4 +50,9 @@ while read -r digest asset; do
     exit 1
   fi
 done < scripts/model.sha256
+echo "Kokoro 已安装。"
+if ! ./scripts/install-translation.command; then
+  echo "翻译尚未安装。可通过 start.command 使用 Kokoro，也可单独重试 scripts/install-translation.command。"
+  exit 1
+fi
 echo "安装完成。双击 start.command 即可打开网页。"

@@ -18,6 +18,8 @@ os.environ.update(HF_HUB_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1", TRANSFORMERS
 from .audio_cache import AudioCache, audio_key
 from .documents import DocumentStore, router as documents_router
 from .english_text import SPEAKABLE, clean_tts_text
+from .translation import TranslationService, router as translation_router
+from .translation_engine import MAX_TEXT as MAX_TRANSLATION_TEXT
 from .tts_engine import DEFAULT_VOICE, MAX_CHARACTERS, MODEL_ID, TTSEngine
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
@@ -45,11 +47,14 @@ async def lifespan(app):
     app.state.load_error = None
     app.state.inference = ThreadPoolExecutor(max_workers=1, thread_name_prefix="kokoro")
     app.state.generation = asyncio.Lock()
+    app.state.translation = TranslationService(DATA / "translation-cache.sqlite3")
+    app.state.translation.start()
     loader = asyncio.create_task(initialize_model(app))
     try:
         yield
     finally:
         await loader
+        await app.state.translation.close()
         app.state.inference.shutdown(wait=True, cancel_futures=True)
 
 
@@ -57,13 +62,16 @@ app = FastAPI(title="Kokoro English TTS", lifespan=lifespan)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
 app.mount("/assets", StaticFiles(directory=FRONTEND), name="assets")
 app.include_router(documents_router)
+app.include_router(translation_router)
 
 
 @app.middleware("http")
 async def local_document_writes(request: Request, call_next):
     path = request.url.path.rstrip("/")
     if request.method in {"POST", "PATCH", "DELETE"} and (
-        path.startswith("/api/documents") or path == "/api/tts/cache"
+        path.startswith("/api/documents") or path in {
+            "/api/tts/cache", "/api/translate", "/api/translation/reload", "/api/translation/cache"
+        }
     ):
         origin = request.headers.get("origin")
         if origin and origin != f"{request.url.scheme}://{request.url.netloc}":
@@ -97,6 +105,13 @@ async def input_error(_request, error):
             if field == "text" and issue["type"] == "string_too_long"
             else "请检查文档名称、内容或阅读位置。"
         )
+    elif _request.url.path == "/api/translate":
+        if field in {"source", "target"}:
+            message = "本地翻译支持英语（en）译为简体中文（zh-Hans）。"
+        elif issue["type"] == "string_too_long":
+            message = f"翻译文本最多 {MAX_TRANSLATION_TEXT:,} 个字符。"
+        else:
+            message = "请输入包含英文字母的翻译文本。"
     elif field == "speed":
         message = "语速必须是 0.7 到 1.3 之间的数字。"
     elif field == "voice":

@@ -21,6 +21,7 @@ const LAST_DOCUMENT = "kokoro-reader-document";
 const pendingSaves = new Map();
 let training;
 let navigation;
+let translation;
 let revealedBlock;
 
 const state = {
@@ -205,6 +206,7 @@ function showSelection(scroll, { focus = false, immediate = false } = {}) {
     $("word-count").textContent = wordCount ? `${wordCount} 词` : "";
     $("position").textContent = unit ? `第 ${state.index + 1} / ${state.units.length} 句` : "尚未选句";
     updateExpansion();
+    translation.select(unit?.speech);
   }
   state.highlighted = selected;
   navigation?.selectOutline(state.index);
@@ -869,6 +871,7 @@ document.addEventListener("keydown", (event) => {
 window.addEventListener("pagehide", () => resetAudio());
 
 navigation = new DocumentNavigation((index, focus) => chooseSentence(index, false, focus));
+translation = new SentenceTranslation();
 training = new ShadowTraining({
   available: standardAvailable,
   playStandard: startAudio,

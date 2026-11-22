@@ -1,6 +1,16 @@
 # Kokoro Reader 英文朗读与跟读训练
 
-在 Apple Silicon Mac 上使用 Kokoro-82M 逐句朗读英文文档，并通过录音回听和 A/B 对比练习发音。模型、音色、文档库和标准音频缓存均在本机。服务只监听 `127.0.0.1:7860`。
+在 Apple Silicon Mac 上使用 Kokoro-82M 逐句朗读英文文档，查看本地简体中文翻译，并通过录音回听和 A/B 对比练习发音。模型、文档和缓存均在本机。服务只监听 `127.0.0.1:7860`。
+
+## 界面预览
+
+**普通朗读** · 用目录和关键词搜索定位句子，练习时可以遮罩答案。右侧显示原文、离线译文和播放进度，也能调倍率或下载 WAV。
+
+![Kokoro Reader 普通朗读界面，显示章节目录、搜索高亮、简体中文译文和播放器](docs/screenshots/kokoro-reader.png)
+
+**三步跟读训练** · 听标准发音、录制自己的发音，再进行 A/B 对比或下载录音。
+
+![Kokoro Reader 三步跟读训练界面，显示录音回听和 A/B 对比控件](docs/screenshots/kokoro-training.png)
 
 ## 启动
 
@@ -24,6 +34,12 @@
 
 应用会保存每份文档的分割模式和选句位置。重新打开文档时会定位到上次选中的句子，点击播放即可继续。文档库的 **删除** 只移除项目里导入的文本副本。
 
+## 逐句中文翻译
+
+选句、切句、连续播放和跟读训练时，「当前句子」卡片在英文下方显示对应的简体中文。翻译复用参与朗读的英文正文，角色标签单独展示。点击 **隐藏** 可关闭翻译，刷新后会保留该偏好。翻译出错时可点 **重试翻译**，英文播放和录音仍可使用。
+
+安装 [MTranServer](https://github.com/xxnuo/MTranServer) 后，Reader 优先使用 5.1.1 版本转换的 Mozilla 英译简中 v3.0 ONNX 模型。运行时用 CPU 推理，由同一个 `start.command` 管理，页面仍使用原来的本地端口。未安装此模型的项目可继续使用 [Helsinki-NLP/opus-mt-en-zh](https://huggingface.co/Helsinki-NLP/opus-mt-en-zh)。服务只对当前句子按需请求翻译，重复句子可跨文档复用缓存。缓存键包含模型版本，切换翻译模型后会重新生成译文。
+
 ## 中英文混排
 
 阅读区只显示可朗读的英文。导入时按 Unicode 字符属性识别汉字和非拉丁文字，按中文标点与文字片段保留边界，再进行智能分句或按行分割。纯中文行和仅有数字、标点的文档片段不会出现在朗读队列。明确的纯中文括号注释会被去除，保留前后的英文。纯中文导入会显示「未检测到可朗读的英文内容」。
@@ -43,7 +59,10 @@
 
 - `data/documents/` 保存提取后的文本、两种分句结果和阅读位置。
 - `data/audio-cache/` 保存按需生成的 WAV 缓存。键由句子内容、音色、语速和模型版本决定，上限为 256 MiB 和 2,000 项。播放器下方的 **清理音频缓存** 可清除缓存。
+- `data/translation-cache.sqlite3` 保存最多 8,000 条翻译。键由规范化文本、语言、模型版本、分段和生成参数决定。播放器下方的 **清理翻译缓存** 只清除翻译记录。
 - `models/Kokoro-82M-bf16/` 保存原有模型和七个音色。`outputs/` 可保存命令行与验收输出。
+- `models/MarianMT-en-zh/` 保存选用 MarianMT 时所需的权重、分词器和配置。
+- `models/MTranServer/` 保存 Mozilla 源文件、语言包清单和准备好的 ONNX 模型。Node.js 依赖安装在项目的 `.runtime/mtranserver/`。
 
 导入时仅解析文档。选句后，服务有缓存就读取缓存，首次播放则调用本地模型生成音频。连续播放也按需生成。浏览器如果拦截自动播放，点击 **播放** 即可开始。当前模型输出 24,000 Hz、单声道、16 位 PCM WAV。
 
@@ -51,12 +70,16 @@
 
 本机部署使用 ARM64 Python 3.13、MLX 0.32.4、MLX-Audio 0.6.7 和 Misaki 0.7.4。安装后，依赖位于项目内的 `.venv/`，模型来自 [mlx-community/Kokoro-82M-bf16](https://huggingface.co/mlx-community/Kokoro-82M-bf16)。
 
-首次安装或修复可执行下列命令。已存在且通过 SHA-256 校验的模型文件会直接复用。固定的 MLX wheel 适用于 macOS 26 或以上的 Apple Silicon Mac。安装完成后，解析、合成和播放可离线进行。
+首次安装或修复可执行下列命令。已存在且通过 SHA-256 校验的模型文件会直接复用。固定的 MLX wheel 适用于 macOS 26 或以上的 Apple Silicon Mac。安装完成后，解析、合成、播放和翻译均可离线进行。
 
 ```sh
 cd ~/Desktop/Kokoro-TTS
 ./scripts/install.command
 ```
+
+已有 Kokoro 环境可以单独运行 `./scripts/install-translation.command` 安装翻译依赖和模型，然后使用原来的 `stop.command` 和 `start.command` 重启。
+
+使用 Node.js 18 或更新版本及 npm 时，可运行 `./scripts/install-mtran.command` 安装轻量 ONNX 翻译后端。安装脚本下载并校验 Mozilla 语言包，模型准备完成后可以断网运行。用 `stop.command` 和 `start.command` 重启 Reader 即可使用。
 
 若启动报错，查看 Terminal 和 `.runtime/server.log`。若端口已由其他应用占用，启动脚本会提示端口冲突。
 
@@ -68,6 +91,10 @@ cd ~/Desktop/Kokoro-TTS
 | `GET /api/voices` | 实际可用音色和语言代码 |
 | `POST /api/tts` | 接收 `text`、`voice`、`speed` 并返回 WAV。响应头 `X-Kokoro-Cache` 表示命中或生成 |
 | `DELETE /api/tts/cache` | 清理项目内的音频缓存 |
+| `GET /api/translation/status` | 翻译模型、加载状态、实际推理设备和目标语言 |
+| `POST /api/translate` | 接收 `text`、`source: "en"` 和 `target: "zh-Hans"`，返回 `translation` 和 `cached`。单次文本上限为 12,000 个字符 |
+| `POST /api/translation/reload` | 翻译模型加载失败后重试 |
+| `DELETE /api/translation/cache` | 清理 SQLite 翻译缓存 |
 | `GET /api/documents` | 列出已导入的文档 |
 | `POST /api/documents/upload` | 通过 multipart 表单字段 `file` 导入文件 |
 | `POST /api/documents/text` | 接收 `name` 和 `text` 并导入英文正文 |
