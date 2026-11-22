@@ -1,20 +1,22 @@
-# Kokoro Reader 英文朗读与跟读训练
+# LineEcho
+
+**离线英文精听与跟读**
 
 在 Apple Silicon Mac 上使用 Kokoro-82M 逐句朗读英文文档，查看本地简体中文翻译，并通过录音回听和 A/B 对比练习发音。模型、文档和缓存均在本机。桌面版在应用窗口中使用，网页版服务监听 `127.0.0.1:7860`。
 
 ## 下载 macOS 应用
 
-<img src="macos/kokoro-reader-icon.png" width="88" height="88" alt="Kokoro Reader 图标">
+<img src="macos/kokoro-reader-icon.png" width="88" height="88" alt="LineEcho 图标">
 
 **系统要求** · Apple Silicon Mac（M 系列），macOS 26 或更新版本。
 
-1. 从 [GitHub Release v0.1.0](https://github.com/Wangxmian/Kokoro-TTS/releases/tag/v0.1.0) 下载 `Kokoro-Reader-0.1.0-arm64.dmg`。
-2. 双击打开磁盘映像，将 **Kokoro Reader.app** 拖到「应用程序」，再从「应用程序」双击打开。
+1. 从 [GitHub Release v0.1.1](https://github.com/Wangxmian/Kokoro-TTS/releases/tag/v0.1.1) 下载 `LineEcho-0.1.1-arm64.dmg`。
+2. 双击打开磁盘映像，将 **LineEcho.app** 拖到「应用程序」，再从「应用程序」双击打开。
 3. 在右侧的跟读模式首次开始录音时允许麦克风访问。下载 WAV 或录音时可用 macOS 保存面板选择位置。
 
 **Apple 公证状态** · 此版本使用临时签名（ad hoc），尚未完成 Developer ID 签名和 Apple 公证。从 GitHub 下载后，macOS 可能默认阻止打开。请先核对下载来源，再参阅 [Apple 关于安全打开 Mac 应用的说明](https://support.apple.com/zh-cn/102445)。
 
-应用内置 Python、Node.js、Kokoro-82M 和 MTranServer 英译简中模型，首次使用也可离线导入文档、朗读、翻译、录音和保存音频。文档、阅读进度及缓存保存在 `~/Library/Application Support/Kokoro Reader/`，更换应用包后会继续使用同一份数据。网页项目里的文档可以通过顶部的「导入文档」重新导入。
+应用内置 Python、Node.js、Kokoro-82M 和 MTranServer 英译简中模型，首次使用也可离线导入文档、朗读、翻译、录音和保存音频。从 Kokoro Reader 升级时，LineEcho 会直接读取 `~/Library/Application Support/Kokoro Reader/` 中的文档、阅读进度和缓存，无需迁移。确认新版可打开后，可以将旧的 `Kokoro Reader.app` 移到废纸篓。网页项目里的文档可以通过顶部的「导入文档」重新导入。
 
 开发者可以在准备好项目环境、两个模型和 Xcode Command Line Tools 后执行 `./scripts/build-macos.command`，输出位于 `outputs/macos/`。参见[随包分发的第三方组件及许可证](macos/ThirdPartyNotices.md)。
 
@@ -22,17 +24,17 @@
 
 **普通朗读** · 用目录和关键词搜索定位句子，练习时可以遮罩答案。右侧显示原文、离线译文和播放进度，也能调倍率或下载 WAV。
 
-![Kokoro Reader 普通朗读界面，显示章节目录、搜索高亮、简体中文译文和播放器](docs/screenshots/kokoro-reader.png)
+![LineEcho 普通朗读界面，显示章节目录、搜索高亮、简体中文译文和播放器](docs/screenshots/kokoro-reader.png)
 
 **三步跟读训练** · 听标准发音、录制自己的发音，再进行 A/B 对比或下载录音。
 
-![Kokoro Reader 三步跟读训练界面，显示录音回听和 A/B 对比控件](docs/screenshots/kokoro-training.png)
+![LineEcho 三步跟读训练界面，显示录音回听和 A/B 对比控件](docs/screenshots/kokoro-training.png)
 
 ## 启动网页版
 
 首次使用请先按下方「安装与修复」的步骤安装依赖和模型。
 
-在 Finder 打开桌面上的 **Kokoro-TTS** 文件夹，双击 **start.command**。模型就绪后，浏览器会打开 [Kokoro Reader](http://127.0.0.1:7860)。使用完毕后双击 **stop.command**。
+在 Finder 打开桌面上的 **Kokoro-TTS** 文件夹，双击 **start.command**。模型就绪后，浏览器会打开 [LineEcho](http://127.0.0.1:7860)。使用完毕后双击 **stop.command**。
 
 原来的文本转语音页面位于 [整段语音](http://127.0.0.1:7860/tts)，可继续输入英文并生成一整段 WAV。整段模式支持单次最多 12,000 个字符。
 

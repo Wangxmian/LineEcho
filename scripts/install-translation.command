@@ -43,4 +43,4 @@ while read -r digest asset; do
   fi
 done < scripts/translation-model.sha256
 
-echo "MarianMT 已安装。重新启动 Kokoro Reader 后可离线逐句翻译。"
+echo "MarianMT 已安装。重新启动 LineEcho 后可离线逐句翻译。"

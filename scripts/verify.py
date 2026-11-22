@@ -95,7 +95,7 @@ def main():
     print("voices:", ", ".join(f"{name}={lang}" for name, lang in expected.items()), flush=True)
 
     for path, content_type, marker in (
-        ("/", "text/html", b"Kokoro Reader"),
+        ("/", "text/html", b"LineEcho"),
         ("/tts", "text/html", b"Generate Speech"),
         ("/assets/style.css", "text/css", b".studio"),
         ("/assets/app.js", None, b"/api/tts"),

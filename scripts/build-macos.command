@@ -11,8 +11,10 @@ root="$PWD"
 build="${KOKORO_MACOS_BUILD_DIR:-$root/.runtime/macos-build}"
 out="${KOKORO_MACOS_OUTPUT_DIR:-$root/outputs/macos}"
 archives="${KOKORO_MACOS_RUNTIME_DIR:-$build/archives}"
-app="$out/Kokoro Reader.app"
-dmg="$out/Kokoro-Reader-0.1.0-arm64.dmg"
+name="$(/usr/bin/plutil -extract CFBundleName raw macos/Info.plist)"
+version="$(/usr/bin/plutil -extract CFBundleShortVersionString raw macos/Info.plist)"
+app="$out/$name.app"
+dmg="$out/$name-$version-arm64.dmg"
 python_site="$root/.venv/lib/python3.13/site-packages"
 mkdir -p "$build" "$out" "$archives"
 
@@ -38,7 +40,7 @@ if [[ "${1:-}" != "--dmg-only" ]]; then
 
   stage="$(mktemp -d "$build/app.XXXXXX")"
   trap 'rm -rf -- "$stage"' EXIT
-  bundle="$stage/Kokoro Reader.app"
+  bundle="$stage/$name.app"
   contents="$bundle/Contents"
   resources="$contents/Resources"
   mkdir -p "$contents/MacOS" "$resources/node" "$resources/macos" "$resources/scripts" \
@@ -82,9 +84,9 @@ if [[ "${1:-}" != "--app-only" ]]; then
   /usr/bin/codesign --verify --deep --strict "$app"
   image_stage="$(mktemp -d "$build/image.XXXXXX")"
   trap 'rm -rf -- "${stage:-}" "$image_stage"' EXIT
-  /usr/bin/ditto "$app" "$image_stage/Kokoro Reader.app"
+  /usr/bin/ditto "$app" "$image_stage/$name.app"
   ln -s /Applications "$image_stage/Applications"
-  /usr/bin/hdiutil create -ov -volname "Kokoro Reader" -srcfolder "$image_stage" \
+  /usr/bin/hdiutil create -ov -volname "$name" -srcfolder "$image_stage" \
     -format UDZO -imagekey zlib-level=3 "$dmg"
   /usr/bin/hdiutil verify "$dmg"
   echo "$dmg"

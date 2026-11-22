@@ -5,6 +5,7 @@ import WebKit
 
 @MainActor
 final class ReaderApp: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
+    private let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "LineEcho"
     private let port = 47860
     private let token = UUID().uuidString
     private var window: NSWindow!
@@ -12,6 +13,7 @@ final class ReaderApp: NSObject, NSApplicationDelegate, WKNavigationDelegate, WK
     private var child: Process?
     private var startup: Task<Void, Never>?
     private var quitting = false
+    // Preserve the data directory shared with the previous desktop release.
     private lazy var home = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appending(path: "Kokoro Reader", directoryHint: .isDirectory)
     private var origin: URL { URL(string: "http://127.0.0.1:\(port)")! }
@@ -26,18 +28,18 @@ final class ReaderApp: NSObject, NSApplicationDelegate, WKNavigationDelegate, WK
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1360, height: 900),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
-        window.title = "Kokoro Reader"
+        window.title = appName
         window.minSize = NSSize(width: 420, height: 460)
         window.contentView = web
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        showStatus("正在启动 Kokoro Reader", detail: "正在载入本机阅读服务。")
+        showStatus("正在启动 \(appName)", detail: "正在载入本机阅读服务。")
         do {
             try launchReader()
             startup = Task { await openWhenReady() }
         } catch {
-            showStatus("无法启动 Kokoro Reader", detail: error.localizedDescription)
+            showStatus("无法启动 \(appName)", detail: error.localizedDescription)
         }
     }
 
@@ -45,7 +47,7 @@ final class ReaderApp: NSObject, NSApplicationDelegate, WKNavigationDelegate, WK
         let menu = NSMenu()
         let appItem = NSMenuItem()
         appItem.submenu = NSMenu()
-        appItem.submenu?.addItem(withTitle: "退出 Kokoro Reader", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu?.addItem(withTitle: "退出 \(appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(appItem)
 
         let editItem = NSMenuItem()
