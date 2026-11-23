@@ -10,7 +10,7 @@
 
 **系统要求** · Apple Silicon Mac（M 系列），macOS 26 或更新版本。
 
-1. 从 [GitHub Release v0.1.1](https://github.com/Wangxmian/Kokoro-TTS/releases/tag/v0.1.1) 下载 `LineEcho-0.1.1-arm64.dmg`。
+1. 从 [v0.1.1 发布页](https://github.com/Wangxmian/LineEcho/releases/tag/v0.1.1) 下载 [LineEcho-0.1.1-arm64.dmg](https://github.com/Wangxmian/LineEcho/releases/download/v0.1.1/LineEcho-0.1.1-arm64.dmg)。
 2. 双击打开磁盘映像，将 **LineEcho.app** 拖到「应用程序」，再从「应用程序」双击打开。
 3. 在右侧的跟读模式首次开始录音时允许麦克风访问。下载 WAV 或录音时可用 macOS 保存面板选择位置。
 
@@ -34,7 +34,7 @@
 
 首次使用请先按下方「安装与修复」的步骤安装依赖和模型。
 
-在 Finder 打开桌面上的 **Kokoro-TTS** 文件夹，双击 **start.command**。模型就绪后，浏览器会打开 [LineEcho](http://127.0.0.1:7860)。使用完毕后双击 **stop.command**。
+在 Finder 打开项目文件夹，双击 **start.command**。模型就绪后，浏览器会打开 [LineEcho](http://127.0.0.1:7860)。使用完毕后双击 **stop.command**。
 
 原来的文本转语音页面位于 [整段语音](http://127.0.0.1:7860/tts)，可继续输入英文并生成一整段 WAV。整段模式支持单次最多 12,000 个字符。
 
@@ -88,10 +88,9 @@
 
 本机部署使用 ARM64 Python 3.13、MLX 0.32.4、MLX-Audio 0.6.7 和 Misaki 0.7.4。安装后，依赖位于项目内的 `.venv/`，模型来自 [mlx-community/Kokoro-82M-bf16](https://huggingface.co/mlx-community/Kokoro-82M-bf16)。
 
-首次安装或修复可执行下列命令。已存在且通过 SHA-256 校验的模型文件会直接复用。固定的 MLX wheel 适用于 macOS 26 或以上的 Apple Silicon Mac。安装完成后，解析、合成、播放和翻译均可离线进行。
+首次安装或修复可在项目根目录执行下列命令。已存在且通过 SHA-256 校验的模型文件会直接复用。固定的 MLX wheel 适用于 macOS 26 或以上的 Apple Silicon Mac。安装完成后，解析、合成、播放和翻译均可离线进行。
 
 ```sh
-cd ~/Desktop/Kokoro-TTS
 ./scripts/install.command
 ```
 
