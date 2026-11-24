@@ -198,6 +198,8 @@ function showSelection(scroll, { focus = false, immediate = false } = {}) {
     sentence.lang = unit ? "en" : "zh-CN";
     sentence.toggleAttribute("data-placeholder", !unit);
     sentence.removeAttribute("data-expanded");
+    $("current-number").hidden = !unit?.number;
+    $("current-number").textContent = unit?.number || "";
     $("current-role").hidden = !unit?.role;
     $("current-role").textContent = unit?.role || "";
     $("current-role").dataset.role = roleStyle(unit?.role || "");
@@ -284,8 +286,14 @@ function renderReading() {
       button.className = "sentence";
       button.dataset.index = position;
       button.dataset.unitId = unit.id;
-      unit.parts.forEach(({ text, label }, line) => {
+      unit.parts.forEach(({ text, label, number }, line) => {
         if (line) button.append("\n");
+        if (number) {
+          const badge = document.createElement("span");
+          badge.className = "role-label exercise-number";
+          badge.textContent = number;
+          button.append(badge, " ");
+        }
         if (label) {
           const badge = document.createElement("span");
           badge.className = "role-label";

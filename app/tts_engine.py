@@ -12,6 +12,7 @@ MODEL_DIR = ROOT / "models" / "Kokoro-82M-bf16"
 MODEL_ID = "mlx-community/Kokoro-82M-bf16"
 MAX_CHARACTERS = 12_000
 DEFAULT_VOICE = "af_heart"
+MLX_CACHE_LIMIT = 128 * 1024 * 1024
 LOGGER = logging.getLogger("uvicorn.error")
 
 
@@ -58,6 +59,8 @@ class TTSEngine:
         EspeakWrapper.set_data_path(espeakng_loader.get_data_path())
         device = mx.gpu if mx.metal.is_available() else mx.cpu
         mx.set_default_device(device)
+        # Keep freed tensor buffers from crowding out WebKit on unified memory.
+        mx.set_cache_limit(MLX_CACHE_LIMIT)
         self.device = "Apple Silicon GPU (Metal)" if device == mx.gpu else "Apple Silicon CPU"
         self.model = load_model(MODEL_DIR)
         self.sample_rate = int(self.model.sample_rate)

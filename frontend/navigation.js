@@ -6,15 +6,16 @@ const QUESTION_LABEL = /^(?:Alternate )?Question\b/i;
 const ANSWER_LABEL = /^Answer\b/i;
 const NUMBERED_ITEM = /^(?:[A-Z]{1,2}\d{1,4}(?=$|[ \t]*[.·:：—–-])|\d{1,4}[.)](?=\s|$))/;
 const QA_BODY_START = /^[\s“‘"'(\[]*[\p{Lu}\p{Nd}]/u;
+const EXERCISE_NUMBER = /^([A-Z])(\d{2,4})(?=$|[^\S\r\n]|[.:：)](?=$|[^\S\r\n]))(?:[^\S\r\n]*[.)·:：–—-](?=$|[^\S\r\n]))?[^\S\r\n]*/;
 
 function dialogueLines(blocks) {
   let previousText = "";
   let question = null;
+  const exerciseNumbers = new Set();
   return blocks.map((block) => {
     if (block.kind === "heading") {
       previousText = block.text.trim();
       question = null;
-      return [];
     }
     const canPair = ["paragraph", "list", "quote"].includes(block.kind);
     let offset = 0;
@@ -24,21 +25,38 @@ function dialogueLines(blocks) {
       const trimmed = line.trim();
       if (!trimmed) return record;
 
+      let bodyLine = line;
+      const number = block.kind === "code" ? null : EXERCISE_NUMBER.exec(trimmed);
+      if (number) {
+        const [, letter, digits] = number;
+        const serial = Number(digits);
+        const previous = letter + String(serial - 1).padStart(digits.length, "0");
+        // A zero-padded label starts a series. A bare code such as B12
+        // stays in the prose unless it continues a recognized series.
+        if (serial > 0 && (digits.startsWith("0") || exerciseNumbers.has(previous))) {
+          record.number = letter + digits;
+          record.numberStart = record.start + line.length - line.trimStart().length;
+          exerciseNumbers.add(record.number);
+          bodyLine = line.trimStart().slice(number[0].length);
+        }
+      }
+      if (block.kind === "heading") return record;
+
       const afterNumber = NUMBERED_ITEM.test(previousText);
       previousText = canPair ? trimmed : "";
-      const firstLatin = line.search(/\p{Script=Latin}/u);
-      const match = firstLatin < 0 ? null : DIALOGUE_LABEL.exec(line.slice(firstLatin));
+      const firstLatin = bodyLine.search(/\p{Script=Latin}/u);
+      const match = firstLatin < 0 ? null : DIALOGUE_LABEL.exec(bodyLine.slice(firstLatin));
       const pendingQuestion = question;
       question = null;
       if (!match) return record;
 
-      const rest = line.slice(firstLatin + match[0].length);
+      const rest = bodyLine.slice(firstLatin + match[0].length);
       const colon = LABEL_COLON.exec(rest);
       const label = match[1].replace(/\s+/g, " ");
       const isQuestion = QUESTION_LABEL.test(label);
       const isAnswer = ANSWER_LABEL.test(label);
       const body = colon ? rest.slice(colon[0].length) : rest.trimStart();
-      if (!colon && (!canPair || body === rest || firstLatin !== line.length - line.trimStart().length ||
+      if (!colon && (!canPair || body === rest || firstLatin !== bodyLine.length - bodyLine.trimStart().length ||
           !QA_BODY_START.test(body))) return record;
 
       record.label = label;
@@ -47,7 +65,7 @@ function dialogueLines(blocks) {
       // With a space as the separator, require a neighboring question and answer.
       if (canPair && isAnswer && pendingQuestion) {
         pendingQuestion.recognized = record.recognized = true;
-      } else if (canPair && isQuestion && (colon || afterNumber || body.includes("?"))) {
+      } else if (canPair && isQuestion && (colon || afterNumber || record.number || body.includes("?"))) {
         question = record;
       }
       return record;
@@ -63,6 +81,7 @@ function prepareReadingUnits(document) {
   let lines = [];
   let lineIndex = 0;
   let pendingLabel = "";
+  let pendingNumber = "";
 
   for (const unit of document.units) {
     if (unit.paragraph_index !== currentBlock) {
@@ -76,17 +95,24 @@ function prepareReadingUnits(document) {
 
     const parts = unit.text.split("\n").map((text, index) => {
       const line = lines[lineIndex + index];
+      const number = line?.number && (index > 0 || unit.start === line.numberStart)
+        ? EXERCISE_NUMBER.exec(text.trimStart()) : null;
+      const hasNumber = number && number[1] + number[2] === line.number;
+      if (hasNumber) text = text.trimStart().slice(number[0].length);
+      const part = { text, label: "", number: hasNumber ? line.number : "" };
       const prefix = line?.recognized && (index > 0 || unit.start < line.bodyStart)
         ? DIALOGUE_LABEL.exec(text) : null;
-      if (!prefix || prefix[1].replace(/\s+/g, " ").toLowerCase() !== line.label.toLowerCase()) {
-        return { text, label: "" };
+      if (prefix && prefix[1].replace(/\s+/g, " ").toLowerCase() === line.label.toLowerCase()) {
+        part.text = text.slice(prefix[0].length).replace(LABEL_COLON, "").trimStart();
+        part.label = line.label;
       }
-      const body = text.slice(prefix[0].length);
-      return { text: body.replace(LABEL_COLON, "").trimStart(), label: line.label };
+      return part;
     });
+    const partNumber = parts.find(({ number }) => number)?.number;
     const speech = parts.map(({ text }) => text).join("\n").trim();
     if (!speech) {
       pendingLabel = parts.find(({ label }) => label)?.label || "";
+      if (partNumber) pendingNumber = partNumber;
       continue;
     }
     const line = lines[lineIndex];
@@ -94,7 +120,15 @@ function prepareReadingUnits(document) {
       parts[0].label = pendingLabel;
     }
     pendingLabel = "";
-    result.push({ ...unit, parts, speech, role: parts.find(({ label }) => label)?.label || (line?.recognized ? line.label : "") });
+    const carriedNumber = !partNumber ? pendingNumber : "";
+    if (carriedNumber) parts[0].number = carriedNumber;
+    pendingNumber = "";
+    result.push({
+      ...unit, parts, speech,
+      number: partNumber || carriedNumber || line?.number || "",
+      searchText: carriedNumber ? `${carriedNumber} ${unit.text}` : unit.text,
+      role: parts.find(({ label }) => label)?.label || (line?.recognized ? line.label : ""),
+    });
   }
   return result;
 }
@@ -194,7 +228,7 @@ class DocumentNavigation {
     clearTimeout(this.timer);
     this.units = units;
     this.buttons = buttons;
-    this.text = units.map((unit) => normalizedSearch(unit.text));
+    this.text = units.map((unit) => normalizedSearch(unit.searchText));
     this.matches = [];
     this.query = "";
     this.active = -1;
@@ -374,7 +408,7 @@ class DocumentNavigation {
       number.textContent = `${unitIndex + 1}.`;
       const snippet = document.createElement("span");
       snippet.lang = "en";
-      snippet.textContent = this.units[unitIndex].text;
+      snippet.textContent = this.units[unitIndex].searchText;
       snippet.title = snippet.textContent;
       button.append(number, snippet);
       this.results.append(button);

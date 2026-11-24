@@ -10,7 +10,7 @@
 
 **系统要求** · Apple Silicon Mac（M 系列），macOS 26 或更新版本。
 
-1. 从 [v0.1.1 发布页](https://github.com/Wangxmian/LineEcho/releases/tag/v0.1.1) 下载 [LineEcho-0.1.1-arm64.dmg](https://github.com/Wangxmian/LineEcho/releases/download/v0.1.1/LineEcho-0.1.1-arm64.dmg)。
+1. 从 [v0.1.2 发布页](https://github.com/Wangxmian/LineEcho/releases/tag/v0.1.2) 下载 [LineEcho-0.1.2-arm64.dmg](https://github.com/Wangxmian/LineEcho/releases/download/v0.1.2/LineEcho-0.1.2-arm64.dmg)。
 2. 双击打开磁盘映像，将 **LineEcho.app** 拖到「应用程序」，再从「应用程序」双击打开。
 3. 在右侧的跟读模式首次开始录音时允许麦克风访问。下载 WAV 或录音时可用 macOS 保存面板选择位置。
 
@@ -46,7 +46,7 @@
 4. **单句播放** 在当前句结束后停止。**连续播放** 在当前句结束后播放下一句。**单句循环** 重复当前句。
 5. **Space** 播放或暂停，**←** 和 **→** 切句，**R** 重播。输入文字或操作输入控件时保留原生按键行为。
 
-使用顶部搜索框查找当前文档中的英文关键词。可以点击结果，也可以用搜索框右侧的上下箭头依次跳转。搜索与章节跳转会选中句子并定位，点击正文或播放按钮后才开始朗读。左侧目录使用 Word 和 Markdown 的实际标题。目录默认收起，点击顶部目录按钮或按 **B** 可展开，支持仅显示主章节。阅读区工具栏可调字号，识别出 Answer 标签后可使用答案遮罩。`Speaker 1:`、`Question:` 等行首角色标签会独立显示。分行成对的 `Question How many…` 和 `Answer Three.` 也能识别，朗读使用标签后的英文内容。
+使用顶部搜索框查找当前文档中的英文关键词。可以点击结果，也可以用搜索框右侧的上下箭头依次跳转。搜索与章节跳转会选中句子并定位，点击正文或播放按钮后才开始朗读。左侧目录使用 Word 和 Markdown 的实际标题。目录默认收起，点击顶部目录按钮或按 **B** 可展开，支持仅显示主章节。阅读区工具栏可调字号，识别出 Answer 标签后可使用答案遮罩。`Speaker 1:`、`Question:` 等行首角色标签会独立显示。分行成对的 `Question How many…` 和 `Answer Three.` 也能识别，朗读使用标签后的英文内容。 题号（如 `A01`、`B001`）会单独显示，仍可搜索。逐句朗读、跟读示范和翻译使用题号后的正文。
 
 在 **普通朗读** 里选择常用播放倍率或拖动滑块，浏览器会实时调整已有标准音频。**声音设置** 中的 Kokoro 生成语速作用于下一次合成和下载的 WAV，仍与文本、音色一起参与缓存。生成语速可在 0.7×～1.3× 调节。
 

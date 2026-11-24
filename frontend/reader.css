@@ -744,6 +744,11 @@ details[open] > summary .chevron { transform: rotate(225deg); margin-top: 3px; }
 .role-label[data-role="speaker-2"] {
   background: var(--warn-bg); color: var(--warn-ink);
 }
+.exercise-number {
+  background: #eeecf8;
+  color: #52466f;
+  font-variant-numeric: tabular-nums;
+}
 #reading-content[data-mask] .answer-text { filter: blur(5px); opacity: .66; user-select: none; }
 #reading-content[data-mask] .sentence:hover .answer-text,
 #reading-content[data-mask] .sentence:focus-visible .answer-text,
